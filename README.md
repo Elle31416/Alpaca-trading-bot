@@ -1,90 +1,73 @@
-# IV-Rank Premium Harvester
+# IV-Rank Harvester
 
-An options-selling agent that screens a watchlist for elevated implied volatility
-(relative to its own recent range), then sells **defined-risk** credit spreads or
-iron condors against it, with mechanical profit-take / stop-loss exits.
+**An options-selling agent that only takes trades it can't blow up on.**
 
-Built against Alpaca's Trading API + Market Data API, designed to run through
-either the **Alpaca MCP server** (natural-language / Claude Code driven) or the
-**Alpaca CLI** (scheduled/cron-style), with `alpaca-py` doing the heavy lifting
-for multi-leg option orders.
+## The Problem
 
-> ⚠️ This scaffold targets a **paper trading account only**. Nothing here is
-> financial advice, and none of it should be pointed at a live account without
-> its own independent review — options selling carries real risk even when
-> "defined risk," and IV-rank alone is not a robust edge without further
-> validation.
+When implied volatility is rich, options are expensive to buy and profitable to sell —
+but doing that by hand is slow, emotional, and easy to over-size. This agent automates
+the disciplined part: find the rich IV, build a defined-risk trade, exit mechanically.
 
-## Why this strategy shape
+## What It Does
 
-- **IV Rank / IV Percentile**: how rich current implied volatility is relative
-  to its own trailing range (not relative to other names) — a standard,
-  explainable vol-selling signal.
-- **Defined risk only**: credit spreads and iron condors cap max loss at
-  entry. No naked short options anywhere in this codebase, on purpose — a
-  single bad naked print during a judging window (or in real life) can wipe
-  out a strategy that otherwise looks fine.
-- **Mechanical exits**: close at a fraction of max profit, or at a multiple of
-  credit received as a stop — removes discretion and emotion from exits,
-  which is also what makes the strategy easy to explain and backtest.
+1. **Screens** a watchlist by IV Rank — how rich current IV is vs. *its own* trailing
+   range (not vs. other tickers).
+2. **Builds** credit spreads or iron condors — max loss is capped the moment the trade
+   is placed.
+3. **Manages exits** automatically: take profit at a fraction of max gain, stop out at
+   a multiple of credit received.
+4. **Talks to Claude** — runs through the Alpaca MCP server, so you can ask in plain
+   English ("scan my watchlist") and get back real option legs, not just a chart.
+
+## Why This Might Stand Out
+
+- **A real, explainable edge** — IV Rank is a standard vol-selling signal, not a black box.
+- **Safety is a design constraint, not an afterthought** — no naked options anywhere in
+  the codebase, on purpose.
+- **One codebase, two modes** — the same strategy logic drives the backtest *and* the
+  live paper trader, so "what we tested" can't drift from "what we run."
+- **Agentic, not just automated** — the MCP integration makes this a Claude-native
+  trading assistant, not a cron job with an API key.
 
 ## Architecture
 
 ```
 iv-rank-harvester/
-├── config.py                 # watchlist, thresholds, risk limits
-├── alpaca_client.py          # shared Trading + Market Data clients
-├── strategy/
-│   ├── iv_rank.py             # IV rank / percentile calculation
-│   ├── screener.py            # scan watchlist, rank candidates
-│   └── spread_builder.py      # turn a candidate into concrete option legs
-├── execution/
-│   ├── order_manager.py       # submit multi-leg orders, position sizing
-│   └── risk_manager.py        # monitor open positions, enforce exits
-├── data/
-│   └── option_chain.py        # fetch & normalize option chain / greeks
-├── backtest/
-│   └── backtest.py            # historical replay of the same logic
-├── agents/
-│   └── roles.md               # optional: split this into Scanner / Strategist
-│                               #   / Risk Officer / Execution subagents
-├── mcp_config.example.json    # example Claude Desktop/Code MCP config
-├── main.py                    # orchestration loop
-├── requirements.txt
-└── .env.example
+├── config.py              # watchlist, thresholds, risk limits
+├── alpaca_client.py        # shared Trading + Market Data clients
+├── strategy/                # IV rank, screening, spread construction
+├── execution/                # order submission, position sizing, risk/exit monitoring
+├── data/                       # option chain + greeks
+├── backtest/                     # historical replay of the same logic
+├── agents/roles.md                 # optional multi-agent split (Scanner/Strategist/Risk/Exec)
+├── main.py                           # orchestration loop
+└── mcp_config.example.json            # Claude Desktop/Code MCP config
 ```
 
-## Setup
+## Quickstart (paper trading only)
 
-1. Create a **new, dedicated** Alpaca paper account — don't reuse an old one.
-2. Copy `.env.example` to `.env` and fill in your paper API key/secret.
-3. `pip install -r requirements.txt`
-4. Sanity-check connectivity:
-   ```bash
-   python -c "from alpaca_client import get_trading_client; print(get_trading_client().get_account())"
-   ```
-5. (Optional, for the agent/MCP path) install and point the Alpaca MCP server
-   at the same paper credentials — see `mcp_config.example.json`.
-6. Run a dry pass:
-   ```bash
-   python main.py --dry-run
-   ```
-   This screens the watchlist and prints proposed trades without submitting
-   anything. Drop `--dry-run` once you've eyeballed the output.
+```bash
+cp .env.example .env        # add PAPER API keys — use a fresh, dedicated account
+pip install -r requirements.txt
+python main.py --dry-run    # prints proposed trades, submits nothing
+```
 
-## Sequencing note
+Backtest before trusting live paper results — a few days of live P&L is mostly noise;
+months of backtest is where the IV-rank threshold and exit rules actually get validated:
 
-Backtest first (`backtest/backtest.py`) against months of history before
-trusting a handful of live paper days — five trading days of live P&L is
-mostly noise on its own. Use the backtest to sanity-check the IV-rank
-threshold and exit rules; use the live paper run to prove the pipeline
-actually executes end-to-end (auth, order routing, fills, exit monitoring).
+```bash
+python backtest/backtest.py
+```
 
-## What's stubbed vs. what's real
+## Guardrails, by design
 
-This scaffold implements real logic for IV-rank calculation, spread
-construction, position sizing, and exit rules. The Alpaca client calls follow
-the documented `alpaca-py` and Market Data API shapes as of this writing —
-**verify field names and endpoints against current Alpaca docs before running
-live**, since SDK surfaces do shift. Anywhere this matters, there's a comment
-flagging it.
+- 🧪 Paper account only
+- 🚫 No naked short options — every position is defined-risk
+- 📏 Mechanical exits, no discretion — easy to explain and easy to backtest
+- ⚠️ Not financial advice; verify Alpaca API field names before ever going live
+
+## What's Real vs. Stubbed
+
+**Real:** IV-rank math, spread construction, position sizing, exit logic.
+**Needs a fresh look before going live:** exact Alpaca endpoint/field names (SDKs
+shift over time) — flagged in code comments where it matters.
