@@ -8,8 +8,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-API_KEY = os.environ.get("APCA_API_KEY_ID")
-API_SECRET = os.environ.get("APCA_API_SECRET_KEY")
+API_KEY = os.environ.get("ALPACA_API_KEY")
+API_SECRET = os.environ.get("ALPACA_SECRET_KEY")
 PAPER = True  # hard-coded on purpose: this project only ever trades paper
 
 
