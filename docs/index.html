@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>IV-Rank Premium Harvester — Live Status</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0b0f14;
+    --card: #131a22;
+    --border: #223040;
+    --text: #e6edf3;
+    --muted: #8b98a5;
+    --accent: #4fd1c5;
+    --danger: #f87171;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    padding: 24px;
+  }
+  h1 { font-size: 1.4rem; margin-bottom: 4px; }
+  .subtitle { color: var(--muted); margin-bottom: 24px; font-size: 0.9rem; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .stat {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .stat .label { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }
+  .stat .value { font-size: 1.5rem; font-weight: 600; margin-top: 4px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 24px;
+  }
+  .card h2 { font-size: 1rem; margin: 0 0 12px 0; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 500; }
+  .empty { color: var(--muted); font-style: italic; padding: 12px 0; }
+  .dry-run-badge {
+    display: inline-block;
+    background: #3a2f0b;
+    color: #f0c14b;
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+</style>
+</head>
+<body>
+  <h1>IV-Rank Premium Harvester</h1>
+  <div class="subtitle">Live paper-trading status, refreshed on every scheduled run.</div>
+
+  <div class="grid" id="stats"></div>
+
+  <div class="card">
+    <h2>Equity Curve</h2>
+    <canvas id="equityChart" height="90"></canvas>
+  </div>
+
+  <div class="card">
+    <h2>Recent Trades</h2>
+    <div id="tradesTable"></div>
+  </div>
+
+  <script>
+    const DATA_BASE = "data";
+
+    async function fetchJson(path, fallback) {
+      try {
+        const res = await fetch(`${DATA_BASE}/${path}?t=${Date.now()}`);
+        if (!res.ok) return fallback;
+        return await res.json();
+      } catch (e) {
+        return fallback;
+      }
+    }
+
+    function renderStats(status) {
+      const el = document.getElementById("stats");
+      if (!status) {
+        el.innerHTML = `<div class="stat"><div class="label">Status</div><div class="value">No runs yet</div></div>`;
+        return;
+      }
+      const dryBadge = status.dry_run
+        ? '<span class="dry-run-badge">DRY RUN</span>'
+        : "";
+      el.innerHTML = `
+        <div class="stat">
+          <div class="label">Account Equity</div>
+          <div class="value">$${Number(status.equity).toLocaleString(undefined, {maximumFractionDigits: 2})}</div>
+        </div>
+        <div class="stat">
+          <div class="label">Candidates Passing Screen</div>
+          <div class="value">${status.candidates_screened_pass}</div>
+        </div>
+        <div class="stat">
+          <div class="label">Trades This Run</div>
+          <div class="value">${status.trades_placed_this_run}${dryBadge}</div>
+        </div>
+        <div class="stat">
+          <div class="label">Last Run (UTC)</div>
+          <div class="value" style="font-size:1rem">${new Date(status.last_run_utc).toLocaleString()}</div>
+        </div>
+      `;
+    }
+
+    function renderEquityChart(points) {
+      const ctx = document.getElementById("equityChart");
+      if (!points || points.length === 0) {
+        ctx.parentElement.innerHTML += '<div class="empty">No equity history yet — check back after the first scheduled run.</div>';
+        return;
+      }
+      new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: points.map(p => new Date(p.timestamp).toLocaleString()),
+          datasets: [{
+            label: "Equity ($)",
+            data: points.map(p => p.equity),
+            borderColor: "#4fd1c5",
+            backgroundColor: "rgba(79, 209, 197, 0.1)",
+            fill: true,
+            tension: 0.15,
+            pointRadius: 0,
+          }],
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: "#8b98a5", maxTicksLimit: 8 }, grid: { color: "#223040" } },
+            y: { ticks: { color: "#8b98a5" }, grid: { color: "#223040" } },
+          },
+        },
+      });
+    }
+
+    function renderTrades(trades) {
+      const el = document.getElementById("tradesTable");
+      if (!trades || trades.length === 0) {
+        el.innerHTML = '<div class="empty">No trades logged yet.</div>';
+        return;
+      }
+      const rows = trades.slice().reverse().slice(0, 50).map(t => `
+        <tr>
+          <td>${new Date(t.timestamp).toLocaleString()}</td>
+          <td>${t.summary}</td>
+          <td>${t.dry_run ? "dry run" : "live paper"}</td>
+        </tr>
+      `).join("");
+      el.innerHTML = `
+        <table>
+          <thead><tr><th>Time</th><th>Structure</th><th>Mode</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }
+
+    (async function init() {
+      const [status, equity, trades] = await Promise.all([
+        fetchJson("status.json", null),
+        fetchJson("equity_curve.json", []),
+        fetchJson("trades.json", []),
+      ]);
+      renderStats(status);
+      renderEquityChart(equity);
+      renderTrades(trades);
+    })();
+  </script>
+</body>
+</html>
