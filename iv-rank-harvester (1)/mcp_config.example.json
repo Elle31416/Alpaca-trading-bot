@@ -1,0 +1,14 @@
+{
+  "_comment": "Example config for wiring the official Alpaca MCP server into Claude Desktop or Claude Code. Copy the relevant block into your client's MCP config (e.g. claude_desktop_config.json), fill in real paper credentials, and verify the exact server package name/install command against Alpaca's current MCP server repo/docs before relying on this.",
+  "mcpServers": {
+    "alpaca": {
+      "command": "npx",
+      "args": ["-y", "@alpacahq/alpaca-mcp-server"],
+      "env": {
+        "APCA_API_KEY_ID": "your_paper_key_id_here",
+        "APCA_API_SECRET_KEY": "your_paper_secret_key_here",
+        "APCA_API_BASE_URL": "https://paper-api.alpaca.markets"
+      }
+    }
+  }
+}
