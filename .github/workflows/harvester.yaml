@@ -21,7 +21,7 @@ jobs:
         env:
           ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
           ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
-        run: python scripts/run_scheduler.py
+        run: python scripts/run_scheduled.py
 
       - name: Commit updated status data
         uses: stefanzweifel/git-auto-commit-action@v5
