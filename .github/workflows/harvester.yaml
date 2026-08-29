@@ -2,7 +2,7 @@ name: IV-Rank Harvester Scheduled Run
 
 on:
   schedule:
-    - cron: '0 14 * * 1-5'   # 14:00 UTC, Mon-Fri — adjust to your market hours
+    - cron: '*/30 13-21 * * 1-5'   # every 30 min, 13:00-21:29 UTC, Mon-Fri — covers 9:30am-4pm ET in both EST and EDT
   workflow_dispatch: {}       # lets you trigger it manually from the Actions tab
 
 jobs:
