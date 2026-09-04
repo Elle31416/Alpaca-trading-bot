@@ -5,12 +5,16 @@ on:
     - cron: '*/30 13-21 * * 1-5'   # every 30 min, 13:00-21:29 UTC, Mon-Fri — covers 9:30am-4pm ET in both EST and EDT
   workflow_dispatch: {}       # lets you trigger it manually from the Actions tab
 
+concurrency:
+  group: iv-rank-harvester-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   run-harvester:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    
+
     steps:
       - uses: actions/checkout@v4
 
@@ -25,6 +29,9 @@ jobs:
           ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
           ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
         run: python scripts/run_scheduled.py
+
+      - name: Sync with remote before commit
+        run: git pull --rebase --autostash origin main
 
       - name: Commit updated status data
         uses: stefanzweifel/git-auto-commit-action@v5
