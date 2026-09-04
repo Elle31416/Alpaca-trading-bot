@@ -1,10 +1,10 @@
-# Deployment
+8# Deployment
 
 Two things need to run, and they're not the same thing:
 
 1. **The trading loop** — needs to execute repeatedly during market hours
    for the rest of the week.
-2. **A public URL judges can open** — a status dashboard, not the bot
+2. **A public URL anyone can open** — a status dashboard, not the bot
    itself (there's nothing to "visit" on a headless trading agent).
 
 ## Recommended path: GitHub Actions + GitHub Pages (free, no servers)
@@ -71,11 +71,10 @@ service (not a web service, since nothing listens on a port here).
 
 For any of these three, you'd still want a **separate** static host for the
 dashboard (e.g. GitHub Pages, Vercel, or Netlify serving `docs/`) since the
-worker itself has no public URL to show judges — or extend `docs/index.html`
+worker itself has no public URL to show — or extend `docs/index.html`
 to fetch from wherever the worker writes its logs instead of a same-repo
 JSON file.
 
-## Either way, before judging week starts
 
 - Confirm the paper account being traded is the **new, dedicated** one from
   the rules, not an old test account.
